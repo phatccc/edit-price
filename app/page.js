@@ -2,173 +2,22 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
-/* ──────────────── Price Parser ──────────────── */
-function parsePrices(text) {
-  if (!text.trim()) return [];
-  const lines = text.split("\n");
-  const prices = [];
-  for (const line of lines) {
-    const parts = line.split("-").map((p) => p.trim()).filter(Boolean);
-    prices.push(...parts);
-  }
-  return prices;
-}
-
-/* ──────────────── Canvas Drawer ──────────────── */
-function drawLabeledImage(canvas, img, prices, config) {
-  const {
-    columns,
-    verticalPosition,
-    labelColor,
-    textColor,
-    fontSize,
-  } = config;
-
-  const ctx = canvas.getContext("2d");
-
-  canvas.width = img.width;
-  canvas.height = img.height;
-
-  // Draw base image
-  ctx.drawImage(img, 0, 0);
-
-  if (prices.length === 0) return;
-
-  const rows = Math.ceil(prices.length / columns);
-  const cellW = img.width / columns;
-  const cellH = img.height / rows;
-
-  const scale = Math.min(cellW, cellH) / 200;
-  const scaledFontSize = fontSize * scale;
-
-  ctx.font = `bold ${scaledFontSize}px "Inter", system-ui, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  for (let i = 0; i < prices.length; i++) {
-    const col = i % columns;
-    const row = Math.floor(i / columns);
-
-    const cellX = col * cellW;
-    const cellY = row * cellH;
-
-    const centerX = cellX + cellW / 2;
-    const posY = cellY + cellH * (verticalPosition / 100);
-
-    const text = prices[i];
-    const metrics = ctx.measureText(text);
-    const textW = metrics.width;
-    const padH = scaledFontSize * 0.6;
-    const padW = scaledFontSize * 0.8;
-    const rectW = textW + padW * 2;
-    const rectH = scaledFontSize + padH * 2;
-    const radius = rectH * 0.35;
-
-    // Shadow
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = 12 * scale;
-    ctx.shadowOffsetY = 4 * scale;
-
-    // Rounded rectangle
-    ctx.fillStyle = labelColor;
-    ctx.beginPath();
-    const x = centerX - rectW / 2;
-    const y = posY - rectH / 2;
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + rectW - radius, y);
-    ctx.quadraticCurveTo(x + rectW, y, x + rectW, y + radius);
-    ctx.lineTo(x + rectW, y + rectH - radius);
-    ctx.quadraticCurveTo(x + rectW, y + rectH, x + rectW - radius, y + rectH);
-    ctx.lineTo(x + radius, y + rectH);
-    ctx.quadraticCurveTo(x, y + rectH, x, y + rectH - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // Text
-    ctx.fillStyle = textColor;
-    ctx.fillText(text, centerX, posY);
-  }
-}
-
-/* ──────────────── ControlGroup Component ──────────────── */
-function ControlGroup({ label, children, hint }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold uppercase tracking-wider text-muted">
-        {label}
-      </label>
-      {children}
-      {hint && <span className="text-[11px] text-muted/60">{hint}</span>}
-    </div>
-  );
-}
-
-/* ──────────────── Item Card Component ──────────────── */
-function ItemCard({ item, index, total, updatePrice, remove, moveUp, moveDown, config }) {
-  const canvasRef = useRef(null);
-  const prices = parsePrices(item.priceText);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !item.imageObj) return;
-    drawLabeledImage(canvas, item.imageObj, prices, config);
-  }, [item.imageObj, item.priceText, config]);
-
-  const rows = config.columns > 0 && prices.length > 0 ? Math.ceil(prices.length / config.columns) : 0;
-
-  return (
-    <div className="flex flex-col gap-3 p-4 border border-border rounded-xl bg-surface animate-fade-in shadow-sm h-full">
-      <div className="flex justify-between items-center bg-surface-hover p-2 rounded-lg border border-border/50">
-        <span className="text-sm font-semibold truncate flex-1" title={item.file.name}>
-          {index + 1}. {item.file.name}
-        </span>
-        <button onClick={() => remove(item.id)} className="text-muted hover:text-danger ml-2 transition-colors">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-
-      <div className="w-full bg-background/50 rounded-lg overflow-hidden flex justify-center items-center h-48 p-2 border border-border border-dashed">
-        <canvas ref={canvasRef} className="max-w-full max-h-full object-contain drop-shadow-md rounded" />
-      </div>
-
-      <textarea
-        value={item.priceText}
-        onChange={(e) => updatePrice(item.id, e.target.value)}
-        placeholder="Paste prices (e.g. 2m6 - 4m...)"
-        className="w-full flex-1 min-h-[80px] bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all resize-none"
-      />
-      
-      <div className="flex justify-between items-center text-xs text-muted px-1">
-        <span>{prices.length} prices • {rows} rows</span>
-        <div className="flex gap-2 bg-background border border-border rounded-md overflow-hidden">
-          <button disabled={index === 0} onClick={() => moveUp(item.id)} className="p-1.5 hover:bg-surface-hover disabled:opacity-30 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
-          </button>
-          <div className="w-px bg-border"></div>
-          <button disabled={index === total - 1} onClick={() => moveDown(item.id)} className="p-1.5 hover:bg-surface-hover disabled:opacity-30 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { parsePrices, parsePriceToNumber, formatPriceFromNumber } from "../utils/price";
+import ControlGroup from "../components/ControlGroup";
+import ItemCard from "../components/ItemCard";
 
 /* ──────────────── Main Page ──────────────── */
 export default function Home() {
   const [items, setItems] = useState([]);
   const [bulkPrices, setBulkPrices] = useState("");
+  const [markupAmount, setMarkupAmount] = useState(0);
   const [columns, setColumns] = useState(5);
+  const [horizontalPosition, setHorizontalPosition] = useState(50);
   const [verticalPosition, setVerticalPosition] = useState(70);
   const [labelColor, setLabelColor] = useState("#2563eb");
   const [textColor, setTextColor] = useState("#ffffff");
   const [fontSize, setFontSize] = useState(28);
   const [isDragging, setIsDragging] = useState(false);
-  const [stitchCols, setStitchCols] = useState(3);
 
   const fileInputRef = useRef(null);
   const bulkPricesRef = useRef("");
@@ -179,17 +28,27 @@ export default function Home() {
 
   function syncToBulkPrices(nextItems) {
     setBulkPrices(currentBulk => {
-      const lines = currentBulk.split('\n');
-      const newLines = nextItems.map(it => it.priceText);
-      for (let i = nextItems.length; i < lines.length; i++) {
-        newLines.push(lines[i]);
+      const currentAllPrices = currentBulk.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+      const newAllPrices = nextItems.map(it => {
+        const pt = it.priceText ? it.priceText.trim() : "";
+        return pt ? pt : "_";
+      });
+      
+      for (let i = nextItems.length; i < currentAllPrices.length; i++) {
+        newAllPrices.push(currentAllPrices[i]);
       }
-      return newLines.join('\n');
+      
+      const formatted = [];
+      for (let i = 0; i < newAllPrices.length; i += 3) {
+        const chunk = newAllPrices.slice(i, i + 3);
+        formatted.push(chunk.join(' - '));
+      }
+      return formatted.join('\n');
     });
     return nextItems;
   }
 
-  const config = { columns, verticalPosition, labelColor, textColor, fontSize };
+  const config = { columns, horizontalPosition, verticalPosition, labelColor, textColor, fontSize };
 
   // Handle files
   function handleFiles(files) {
@@ -219,12 +78,13 @@ export default function Home() {
       results.sort((a, b) => a.index - b.index);
       
       setItems((prev) => {
-        const currentLines = bulkPricesRef.current.split('\n');
+        const currentAllPrices = bulkPricesRef.current.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
         const nextItems = [...prev];
         
         results.forEach((r) => {
           const newItem = r.item;
-          newItem.priceText = currentLines[nextItems.length] || "";
+          const assignedPrice = currentAllPrices[nextItems.length];
+          newItem.priceText = (assignedPrice && assignedPrice !== "_") ? assignedPrice : "";
           nextItems.push(newItem);
         });
         
@@ -264,45 +124,7 @@ export default function Home() {
     return () => window.removeEventListener("paste", handlePaste);
   }, []);
 
-  function handleDownloadStitched() {
-    if (items.length === 0) return;
-
-    // Calculate dimensions for the grid
-    const cellW = Math.max(...items.map((it) => it.imageObj.width));
-    const cellH = Math.max(...items.map((it) => it.imageObj.height));
-
-    const totalCols = Math.min(items.length, stitchCols);
-    const totalRows = Math.ceil(items.length / stitchCols);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = cellW * totalCols;
-    canvas.height = cellH * totalRows;
-    const ctx = canvas.getContext("2d");
-
-    items.forEach((item, i) => {
-      const col = i % stitchCols;
-      const row = Math.floor(i / stitchCols);
-      
-      const tempCanvas = document.createElement("canvas");
-      drawLabeledImage(tempCanvas, item.imageObj, parsePrices(item.priceText), config);
-      
-      // Scale to fit exactly in cellW x cellH without cropping
-      const scale = Math.min(cellW / item.imageObj.width, cellH / item.imageObj.height);
-      const w = item.imageObj.width * scale;
-      const h = item.imageObj.height * scale;
-      
-      // Center in cell
-      const x = col * cellW + (cellW - w) / 2;
-      const y = row * cellH + (cellH - h) / 2;
-      
-      ctx.drawImage(tempCanvas, x, y, w, h);
-    });
-
-    const link = document.createElement("a");
-    link.download = "stitched-grid-prices.png";
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  }
+  // handleDownloadStitched removed as per user request
 
   function handleClear() {
     setItems([]);
@@ -338,6 +160,72 @@ export default function Home() {
     });
   }
 
+  const handleDownloadAll = async () => {
+    if (items.length === 0) return;
+    
+    // Download each item sequentially
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const canvas = document.getElementById(`canvas-${item.id}`);
+      if (canvas) {
+        const link = document.createElement("a");
+        link.download = `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        
+        // Short delay to prevent browser from blocking multiple popups
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    }
+  };
+
+  const applyFormatAndMarkup = (isAuto = false) => {
+    if (!bulkPrices.trim()) return;
+    const manualMarkup = parseFloat(markupAmount) || 0;
+    const allPrices = bulkPrices.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+    
+    const formattedPrices = allPrices.map(p => {
+      if (p === "_") return "_";
+      const num = parsePriceToNumber(p);
+      if (num === null) return p; // fallback
+      
+      let finalMarkup = 0;
+      if (isAuto) {
+        const priceInMillion = num / 1000;
+        if (priceInMillion < 3) finalMarkup = 300;
+        else if (priceInMillion < 7) finalMarkup = 500;
+        else if (priceInMillion < 10) finalMarkup = 600;
+        else if (priceInMillion < 20) finalMarkup = 1000;
+        else if (priceInMillion < 50) finalMarkup = 2000;
+        else if (priceInMillion < 70) finalMarkup = 3000;
+        else if (priceInMillion < 100) finalMarkup = 4000;
+        else finalMarkup = 5000;
+      } else {
+        finalMarkup = manualMarkup;
+      }
+
+      return formatPriceFromNumber(num + finalMarkup);
+    });
+
+    const formattedLines = [];
+    for (let i = 0; i < formattedPrices.length; i += 3) {
+      const chunk = formattedPrices.slice(i, i + 3);
+      formattedLines.push(chunk.join(' - '));
+    }
+    const newText = formattedLines.join('\n');
+    setBulkPrices(newText);
+    
+    // Sync to items
+    const parsedNewPrices = newText.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+    setItems(prev => prev.map((it, i) => {
+      const assignedPrice = parsedNewPrices[i];
+      return {
+        ...it,
+        priceText: (assignedPrice !== undefined && assignedPrice !== "_") ? assignedPrice : ""
+      };
+    }));
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* ─── Header ─── */}
@@ -359,7 +247,7 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {items.length > 0 && (
               <button
-                onClick={handleDownloadStitched}
+                onClick={handleDownloadAll}
                 className="h-9 px-4 rounded-md bg-accent hover:bg-accent-hover text-white font-semibold text-sm transition-all duration-200 flex items-center gap-2 shadow-sm shadow-accent/20"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -367,7 +255,7 @@ export default function Home() {
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                Stitch & Download
+                Download All ({items.length})
               </button>
             )}
             <span className="text-xs text-muted hidden sm:block border-l border-border pl-3">
@@ -381,7 +269,7 @@ export default function Home() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-6">
         
         {/* ─── Sidebar Controls ─── */}
-        <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-5 animate-fade-in">
+        <aside className="w-full lg:w-80 xl:w-80 flex-shrink-0 flex flex-col gap-5 animate-fade-in">
           
           {/* Upload */}
           <section className="rounded-xl border border-border bg-surface p-4 flex flex-col gap-4">
@@ -439,30 +327,64 @@ export default function Home() {
             </h2>
             <div className="flex flex-col gap-2">
               <p className="text-[11px] text-muted leading-relaxed">
-                Paste your batch of prices here. <strong className="text-accent">Line 1</strong> goes to <strong className="text-accent">Image 1</strong>, Line 2 to Image 2, etc.
+                Paste your batch of prices here. They will automatically be distributed: <strong className="text-accent">1 Price</strong> = <strong className="text-accent">1 Image</strong> sequentially.
               </p>
               <textarea
                 value={bulkPrices}
                 onChange={(e) => {
                   const text = e.target.value;
                   setBulkPrices(text);
-                  const lines = text.split('\n');
-                  setItems(prev => prev.map((it, i) => ({
-                    ...it,
-                    priceText: lines[i] !== undefined ? lines[i] : ""
-                  })));
+                  const allPrices = text.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+                  setItems(prev => prev.map((it, i) => {
+                    const assignedPrice = allPrices[i];
+                    return {
+                      ...it,
+                      priceText: (assignedPrice !== undefined && assignedPrice !== "_") ? assignedPrice : ""
+                    };
+                  }));
                 }}
                 placeholder="2m6 - 2m4 - 4m&#10;4m4 - 3m1 - 2m4&#10;..."
-                className="w-full h-32 bg-background border border-border rounded-lg px-3 py-2.5 text-sm font-mono text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent resize-none"
+                className="w-full h-24 md:h-32 bg-background border border-border rounded-lg px-3 py-2.5 text-sm font-mono text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent resize-none"
               />
-              <div className="flex justify-between items-center text-xs text-muted px-1">
-                <span>{bulkPrices.split('\n').filter(Boolean).length} lines detected</span>
+              
+              {/* Markup and Format Tools */}
+              <div className="flex flex-col gap-2 mt-2 bg-background/50 p-2.5 rounded-lg border border-border/50">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted text-xs font-medium whitespace-nowrap">Đôn giá (k):</span>
+                  <input
+                    type="number"
+                    value={markupAmount}
+                    onChange={(e) => setMarkupAmount(e.target.value)}
+                    className="w-full h-8 bg-background border border-border rounded-md px-3 font-mono text-sm text-foreground focus:border-accent focus:ring-1 focus:ring-accent/40 outline-none"
+                    placeholder="200"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => applyFormatAndMarkup(false)}
+                    className="h-8 rounded-md bg-accent/10 hover:bg-accent/20 text-accent font-semibold transition-colors text-xs flex items-center justify-center gap-1.5 touch-manipulation"
+                    title="Đôn theo số tiền nhập bên trái"
+                  >
+                    Format & Đôn
+                  </button>
+                  <button
+                    onClick={() => applyFormatAndMarkup(true)}
+                    className="h-8 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 font-semibold transition-colors text-xs flex items-center justify-center gap-1.5 touch-manipulation"
+                    title="Đôn tự động theo Rule bậc thang"
+                  >
+                    Đôn Auto
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center text-xs text-muted px-1 mt-1">
+                <span>{bulkPrices.split(/[\r\n-]/).map(p => p.trim()).filter(p => p).length} prices detected</span>
               </div>
             </div>
           </section>
 
           {/* Controls */}
-          <section className="rounded-xl border border-border bg-surface p-4 flex flex-col gap-5 sticky top-24">
+          <section className="rounded-xl border border-border bg-surface p-4 flex flex-col gap-5 lg:sticky lg:top-24 z-10">
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <span className="w-6 h-6 rounded-md bg-accent/20 text-accent text-xs font-bold flex items-center justify-center">3</span>
               Global Settings
@@ -482,17 +404,31 @@ export default function Home() {
               </div>
             </ControlGroup>
 
-            <ControlGroup label="Label Position" hint={`${verticalPosition}% from top of cell`}>
+            <ControlGroup label="Label Position (Y)" hint={`${verticalPosition}% from top of cell`}>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
-                  min="10"
+                  min="5"
                   max="95"
                   value={verticalPosition}
                   onChange={(e) => setVerticalPosition(parseInt(e.target.value))}
                   className="flex-1"
                 />
                 <span className="w-8 text-center text-sm font-bold text-accent">{verticalPosition}%</span>
+              </div>
+            </ControlGroup>
+
+            <ControlGroup label="Label Position (X)" hint={`${horizontalPosition}% from left of cell`}>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="5"
+                  max="95"
+                  value={horizontalPosition}
+                  onChange={(e) => setHorizontalPosition(parseInt(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="w-8 text-center text-sm font-bold text-accent">{horizontalPosition}%</span>
               </div>
             </ControlGroup>
 
@@ -507,20 +443,6 @@ export default function Home() {
                   className="flex-1"
                 />
                 <span className="w-8 text-center text-sm font-bold text-accent">{fontSize}</span>
-              </div>
-            </ControlGroup>
-
-            <ControlGroup label="Stitch Layout" hint="Columns in final downloaded image">
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  value={stitchCols}
-                  onChange={(e) => setStitchCols(parseInt(e.target.value))}
-                  className="flex-1"
-                />
-                <span className="w-8 text-center text-sm font-bold text-accent">{stitchCols} cols</span>
               </div>
             </ControlGroup>
 
@@ -544,23 +466,21 @@ export default function Home() {
                 </div>
               </ControlGroup>
             </div>
-            
-            <div className="text-xs text-muted/70 bg-background p-3 rounded border border-border/50 italic leading-relaxed">
-              * The final stitched image will lay out your items into a grid based on "Stitch Layout".
-            </div>
           </section>
         </aside>
 
         {/* ─── Cards List ─── */}
         <section className="flex-1 flex flex-col gap-4 min-w-0">
           {items.length === 0 ? (
-            <div className="flex-1 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center p-12 text-muted animate-fade-in bg-surface/30">
-               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-4 opacity-50"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-               <h3 className="text-lg font-medium text-foreground mb-1">No images added</h3>
-               <p className="text-sm opacity-80 text-center max-w-sm">Upload or paste multiple screenshots. Each image will have its own price input field to guarantee perfect alignment.</p>
+            <div className="flex-1 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center p-12 text-muted animate-fade-in bg-gradient-to-b from-surface/30 to-background/50">
+               <div className="w-20 h-20 mb-6 rounded-full bg-accent/10 flex items-center justify-center shadow-inner">
+                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+               </div>
+               <h3 className="text-2xl font-bold text-foreground mb-2 tracking-tight">No Images Yet</h3>
+               <p className="text-base opacity-80 text-center max-w-md">Drag and drop your screenshots here, or click to browse. Let's make pricing magical.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+            <div className="flex flex-col gap-6 md:gap-8">
               {items.map((item, index) => (
                 <ItemCard 
                   key={item.id} 
