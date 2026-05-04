@@ -3,6 +3,7 @@
 import { useRef, useEffect } from "react";
 import { parsePrices } from "../utils/price";
 import { drawLabeledImage } from "../utils/canvas";
+import { downloadCanvasImage } from "../utils/download";
 
 export default function ItemCard({ item, index, total, updatePrice, remove, moveUp, moveDown, config }) {
   const canvasRef = useRef(null);
@@ -44,10 +45,8 @@ export default function ItemCard({ item, index, total, updatePrice, remove, move
           <button 
             onClick={() => {
               if (!canvasRef.current) return;
-              const link = document.createElement("a");
-              link.download = `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`;
-              link.href = canvasRef.current.toDataURL("image/png");
-              link.click();
+              const filename = `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`;
+              downloadCanvasImage(canvasRef.current, filename);
             }}
             className="h-10 px-3 sm:h-8 sm:px-3 flex items-center gap-1.5 rounded-md bg-accent hover:bg-accent-hover text-white font-medium transition-colors shadow-sm shadow-accent/20 touch-manipulation"
           >

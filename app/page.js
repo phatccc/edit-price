@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 import { parsePrices, parsePriceToNumber, formatPriceFromNumber } from "../utils/price";
+import { downloadMultipleCanvasImages } from "../utils/download";
 import ControlGroup from "../components/ControlGroup";
 import ItemCard from "../components/ItemCard";
 
@@ -163,20 +164,18 @@ export default function Home() {
   const handleDownloadAll = async () => {
     if (items.length === 0) return;
     
-    // Download each item sequentially
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
+    const canvasDataArray = [];
+    for (const item of items) {
       const canvas = document.getElementById(`canvas-${item.id}`);
       if (canvas) {
-        const link = document.createElement("a");
-        link.download = `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`;
-        link.href = canvas.toDataURL("image/png");
-        link.click();
-        
-        // Short delay to prevent browser from blocking multiple popups
-        await new Promise(resolve => setTimeout(resolve, 300));
+        canvasDataArray.push({
+          canvas,
+          filename: `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`
+        });
       }
     }
+    
+    await downloadMultipleCanvasImages(canvasDataArray);
   };
 
   const applyFormatAndMarkup = (isAuto = false) => {
