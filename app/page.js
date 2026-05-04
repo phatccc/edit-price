@@ -185,7 +185,7 @@ export default function Home() {
         if (canvas) {
           canvasDataArray.push({
             canvas,
-            filename: `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`
+            filename: `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.jpg`
           });
         }
       }

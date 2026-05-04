@@ -45,7 +45,7 @@ export default function ItemCard({ item, index, total, updatePrice, remove, move
           <button 
             onClick={() => {
               if (!canvasRef.current) return;
-              const filename = `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`;
+              const filename = `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.jpg`;
               downloadCanvasImage(canvasRef.current, filename);
             }}
             className="h-10 px-3 sm:h-8 sm:px-3 flex items-center gap-1.5 rounded-md bg-accent hover:bg-accent-hover text-white font-medium transition-colors shadow-sm shadow-accent/20 touch-manipulation"
