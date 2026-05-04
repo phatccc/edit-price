@@ -1,4 +1,15 @@
-import JSZip from "jszip";
+function canvasToFileSync(canvas, filename) {
+  const dataUrl = canvas.toDataURL("image/png");
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+}
 
 export async function downloadCanvasImage(canvas, filename) {
   if (!canvas) return;
@@ -7,16 +18,14 @@ export async function downloadCanvasImage(canvas, filename) {
 
   if (isIOS && navigator.canShare) {
     try {
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-      if (blob) {
-        const file = new File([blob], filename, { type: "image/png" });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: filename,
-          });
-          return;
-        }
+      // Synchronous conversion to preserve user gesture context in Safari
+      const file = canvasToFileSync(canvas, filename);
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: filename,
+        });
+        return;
       }
     } catch (err) {
       console.warn("Web Share API failed, falling back to standard download.", err);
@@ -37,49 +46,27 @@ export async function downloadMultipleCanvasImages(canvasDataArray, onProgress) 
 
   if (isIOS) {
     try {
-      const zip = new JSZip();
-      
-      // Add all images to the zip
+      const filesArray = [];
+      // Synchronous conversion to preserve user gesture context in Safari
       for (let i = 0; i < canvasDataArray.length; i++) {
         const { canvas, filename } = canvasDataArray[i];
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png", 1.0));
-        zip.file(filename, blob);
+        const file = canvasToFileSync(canvas, filename);
+        filesArray.push(file);
         
-        // Progress for creating blobs: 0-50%
-        if (onProgress) onProgress(Math.floor(((i + 1) / canvasDataArray.length) * 50), 100);
+        if (onProgress) onProgress(Math.floor(((i + 1) / canvasDataArray.length) * 100), 100);
       }
       
-      // Generate zip
-      const zipBlob = await zip.generateAsync({ 
-        type: "blob",
-        compression: "STORE" // Faster generation
-      }, (meta) => {
-        // Progress for zipping: 50-100%
-        if (onProgress) onProgress(50 + Math.floor(meta.percent / 2), 100);
-      });
-      
-      const zipFilename = "prices_labeled.zip";
-      const zipFile = new File([zipBlob], zipFilename, { type: "application/zip" });
-      
-      // Try Web Share API first
-      if (navigator.canShare && navigator.canShare({ files: [zipFile] })) {
+      if (navigator.canShare && navigator.canShare({ files: filesArray })) {
         await navigator.share({
-          files: [zipFile],
-          title: "Downloaded Images Zip",
+          files: filesArray,
+          title: "Tải ảnh về máy",
         });
-        return;
+        return; // Success!
       } else {
-        // Fallback to normal download for zip
-        const url = URL.createObjectURL(zipBlob);
-        const link = document.createElement("a");
-        link.download = zipFilename;
-        link.href = url;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        return;
+        console.warn("navigator.canShare returned false for multiple files.");
       }
     } catch (err) {
-      console.warn("ZIP generation failed, falling back to sequential download.", err);
+      console.warn("Web share failed, falling back to sequential download.", err);
     }
   }
 
