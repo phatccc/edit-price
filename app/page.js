@@ -12,12 +12,14 @@ export default function Home() {
   const [items, setItems] = useState([]);
   const [bulkPrices, setBulkPrices] = useState("");
   const [columns, setColumns] = useState(5);
-  const [horizontalPosition, setHorizontalPosition] = useState(50);
-  const [verticalPosition, setVerticalPosition] = useState(50);
-  const [labelColor, setLabelColor] = useState("#2563eb");
+  const [horizontalPosition, setHorizontalPosition] = useState(49);
+  const [verticalPosition, setVerticalPosition] = useState(51);
+  const [labelColor, setLabelColor] = useState("#38bdf8");
   const [textColor, setTextColor] = useState("#ffffff");
-  const [fontSize, setFontSize] = useState(20);
+  const [fontSize, setFontSize] = useState(10);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   const fileInputRef = useRef(null);
   const bulkPricesRef = useRef("");
@@ -29,18 +31,28 @@ export default function Home() {
   function syncToBulkPrices(nextItems) {
     setBulkPrices(currentBulk => {
       const currentAllPrices = currentBulk.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p);
+      
       const newAllPrices = nextItems.map(it => {
         const pt = it.priceText ? it.priceText.trim() : "";
-        return pt ? pt : "_";
+        return pt;
       });
       
       for (let i = nextItems.length; i < currentAllPrices.length; i++) {
         newAllPrices.push(currentAllPrices[i]);
       }
       
+      // Remove trailing empty items so we don't clutter the input with `_ - _ - _`
+      while (newAllPrices.length > 0 && (!newAllPrices[newAllPrices.length - 1] || newAllPrices[newAllPrices.length - 1] === "_")) {
+        newAllPrices.pop();
+      }
+      
+      if (newAllPrices.length === 0) return "";
+      
+      const finalPrices = newAllPrices.map(p => p ? p : "_");
+      
       const formatted = [];
-      for (let i = 0; i < newAllPrices.length; i += 3) {
-        const chunk = newAllPrices.slice(i, i + 3);
+      for (let i = 0; i < finalPrices.length; i += 3) {
+        const chunk = finalPrices.slice(i, i + 3);
         formatted.push(chunk.join(' - '));
       }
       return formatted.join('\n');
@@ -161,20 +173,33 @@ export default function Home() {
   }
 
   const handleDownloadAll = async () => {
-    if (items.length === 0) return;
+    if (items.length === 0 || isDownloading) return;
     
-    const canvasDataArray = [];
-    for (const item of items) {
-      const canvas = document.getElementById(`canvas-${item.id}`);
-      if (canvas) {
-        canvasDataArray.push({
-          canvas,
-          filename: `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`
-        });
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    
+    try {
+      const canvasDataArray = [];
+      for (const item of items) {
+        const canvas = document.getElementById(`canvas-${item.id}`);
+        if (canvas) {
+          canvasDataArray.push({
+            canvas,
+            filename: `labeled_${item.file.name.replace(/\.[^/.]+$/, "")}.png`
+          });
+        }
       }
+      
+      await downloadMultipleCanvasImages(canvasDataArray, (current, total) => {
+        setDownloadProgress(Math.round((current / total) * 100));
+      });
+    } finally {
+      // Delay resetting state slightly so user sees 100%
+      setTimeout(() => {
+        setIsDownloading(false);
+        setDownloadProgress(0);
+      }, 500);
     }
-    
-    await downloadMultipleCanvasImages(canvasDataArray);
   };
 
   const applyFormatAndMarkup = (isAuto = false) => {
@@ -201,6 +226,10 @@ export default function Home() {
 
       return formatPriceFromNumber(num + finalMarkup);
     });
+
+    while (formattedPrices.length > 0 && formattedPrices[formattedPrices.length - 1] === "_") {
+      formattedPrices.pop();
+    }
 
     const formattedLines = [];
     for (let i = 0; i < formattedPrices.length; i += 3) {
@@ -243,14 +272,24 @@ export default function Home() {
             {items.length > 0 && (
               <button
                 onClick={handleDownloadAll}
-                className="h-9 px-4 rounded-md bg-accent hover:bg-accent-hover text-white font-semibold text-sm transition-all duration-200 flex items-center gap-2 shadow-sm shadow-accent/20"
+                disabled={isDownloading}
+                className="h-9 px-4 rounded-md bg-accent hover:bg-accent-hover text-white font-semibold text-sm transition-all duration-200 flex items-center gap-2 shadow-sm shadow-accent/20 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Download All ({items.length})
+                {isDownloading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Processing... {downloadProgress}%
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download All ({items.length})
+                  </>
+                )}
               </button>
             )}
             <span className="text-xs text-muted hidden sm:block border-l border-border pl-3">
@@ -419,7 +458,7 @@ export default function Home() {
               <div className="flex items-center gap-3">
                 <input
                   type="range"
-                  min="12"
+                  min="4"
                   max="72"
                   value={fontSize}
                   onChange={(e) => setFontSize(parseInt(e.target.value))}
