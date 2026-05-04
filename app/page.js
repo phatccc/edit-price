@@ -202,9 +202,17 @@ export default function Home() {
     }
   };
 
+  const extractPricesFromText = (text) => {
+    const regex = /_|(?:\b\d+(?:[.,]\d+)?(?:[ \t]?(?:m|tr(?:iệu)?|củ|k)(?:[ \t]?\d+)?(?:[ \t]?(?:m|tr(?:iệu)?|củ|k))?)?\b|\b\d+(?:[.,]\d+)?\b)/gi;
+    const matches = text.match(regex);
+    return matches ? matches.map(m => m.trim()) : [];
+  };
+
   const applyFormatAndMarkup = (isAuto = false) => {
     if (!bulkPrices.trim()) return;
-    const allPrices = bulkPrices.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p);
+    
+    const allPrices = extractPricesFromText(bulkPrices);
+    if (allPrices.length === 0) return;
     
     const formattedPrices = allPrices.map(p => {
       if (p === "_") return "_";
@@ -218,6 +226,7 @@ export default function Home() {
         else if (priceInMillion < 7) finalMarkup = 500;
         else if (priceInMillion < 10) finalMarkup = 600;
         else if (priceInMillion < 20) finalMarkup = 1000;
+        else if (priceInMillion < 30) finalMarkup = 1500;
         else if (priceInMillion < 50) finalMarkup = 2000;
         else if (priceInMillion < 70) finalMarkup = 3000;
         else if (priceInMillion < 100) finalMarkup = 4000;
@@ -240,7 +249,7 @@ export default function Home() {
     setBulkPrices(newText);
     
     // Sync to items
-    const parsedNewPrices = newText.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p);
+    const parsedNewPrices = extractPricesFromText(newText);
     setItems(prev => prev.map((it, i) => {
       const assignedPrice = parsedNewPrices[i];
       return {
