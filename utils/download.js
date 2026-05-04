@@ -1,5 +1,3 @@
-import JSZip from "jszip";
-
 function canvasToFileSync(canvas, filename, type = "image/jpeg", quality = 0.9) {
   const dataUrl = canvas.toDataURL(type, quality);
   const arr = dataUrl.split(',');
@@ -13,6 +11,86 @@ function canvasToFileSync(canvas, filename, type = "image/jpeg", quality = 0.9) 
   return new File([u8arr], filename, { type: mime });
 }
 
+function showLongPressModal(canvasDataArray) {
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100%";
+  overlay.style.height = "100%";
+  overlay.style.backgroundColor = "rgba(15, 23, 42, 0.98)";
+  overlay.style.zIndex = "999999";
+  overlay.style.display = "flex";
+  overlay.style.flexDirection = "column";
+  overlay.style.overflowY = "auto";
+  overlay.style.padding = "20px";
+  overlay.style.backdropFilter = "blur(8px)";
+  overlay.style.webkitBackdropFilter = "blur(8px)";
+  
+  const header = document.createElement("div");
+  header.style.textAlign = "center";
+  header.style.marginBottom = "24px";
+  header.style.color = "white";
+  header.style.paddingTop = "max(env(safe-area-inset-top, 20px), 20px)";
+  
+  const title = document.createElement("h2");
+  title.innerText = "Lưu ảnh thủ công";
+  title.style.fontSize = "22px";
+  title.style.fontWeight = "bold";
+  title.style.marginBottom = "8px";
+  title.style.fontFamily = "system-ui, -apple-system, sans-serif";
+  
+  const desc = document.createElement("p");
+  desc.innerText = "Thiết bị của bạn đang chặn tải nhiều file. Vui lòng nhấn giữ (Long press) vào từng ảnh dưới đây và chọn 'Lưu hình ảnh' (Save Image) vào thư viện.";
+  desc.style.fontSize = "14px";
+  desc.style.color = "#94a3b8";
+  desc.style.lineHeight = "1.5";
+  desc.style.fontFamily = "system-ui, -apple-system, sans-serif";
+  
+  header.appendChild(title);
+  header.appendChild(desc);
+  overlay.appendChild(header);
+
+  const imagesContainer = document.createElement("div");
+  imagesContainer.style.display = "flex";
+  imagesContainer.style.flexDirection = "column";
+  imagesContainer.style.gap = "24px";
+  imagesContainer.style.alignItems = "center";
+  imagesContainer.style.paddingBottom = "100px";
+
+  canvasDataArray.forEach(({ canvas }) => {
+    const img = document.createElement("img");
+    img.src = canvas.toDataURL("image/jpeg", 0.9);
+    img.style.maxWidth = "100%";
+    img.style.height = "auto";
+    img.style.borderRadius = "12px";
+    img.style.boxShadow = "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.1)";
+    imagesContainer.appendChild(img);
+  });
+  
+  overlay.appendChild(imagesContainer);
+  
+  const closeBtn = document.createElement("button");
+  closeBtn.innerText = "Đóng & Quay lại";
+  closeBtn.style.position = "fixed";
+  closeBtn.style.bottom = "max(env(safe-area-inset-bottom, 30px), 30px)";
+  closeBtn.style.left = "50%";
+  closeBtn.style.transform = "translateX(-50%)";
+  closeBtn.style.backgroundColor = "#38bdf8";
+  closeBtn.style.color = "#0f172a";
+  closeBtn.style.border = "none";
+  closeBtn.style.padding = "14px 32px";
+  closeBtn.style.borderRadius = "999px";
+  closeBtn.style.fontSize = "16px";
+  closeBtn.style.fontWeight = "bold";
+  closeBtn.style.boxShadow = "0 10px 15px -3px rgba(56, 189, 248, 0.4)";
+  closeBtn.style.fontFamily = "system-ui, -apple-system, sans-serif";
+  closeBtn.onclick = () => document.body.removeChild(overlay);
+  
+  overlay.appendChild(closeBtn);
+  document.body.appendChild(overlay);
+}
+
 export async function downloadCanvasImage(canvas, filename) {
   if (!canvas) return;
 
@@ -21,7 +99,6 @@ export async function downloadCanvasImage(canvas, filename) {
 
   if (isIOS && navigator.canShare) {
     try {
-      // Synchronous conversion to preserve user gesture context in Safari
       const file = canvasToFileSync(canvas, jpgFilename, "image/jpeg", 0.9);
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({
@@ -35,7 +112,6 @@ export async function downloadCanvasImage(canvas, filename) {
     }
   }
 
-  // Standard download fallback
   const link = document.createElement("a");
   link.download = jpgFilename;
   link.href = canvas.toDataURL("image/jpeg", 0.9);
@@ -51,7 +127,6 @@ export async function downloadMultipleCanvasImages(canvasDataArray, onProgress) 
     let shareSuccess = false;
     try {
       const filesArray = [];
-      // Synchronous conversion to JPEGs to reduce file size and preserve gesture
       for (let i = 0; i < canvasDataArray.length; i++) {
         const { canvas, filename } = canvasDataArray[i];
         const jpgFilename = filename.replace(/\.[^/.]+$/, ".jpg");
@@ -59,7 +134,6 @@ export async function downloadMultipleCanvasImages(canvasDataArray, onProgress) 
         filesArray.push(file);
       }
       
-      // Attempt native Share Sheet (works best if file array is small enough)
       if (navigator.canShare && navigator.canShare({ files: filesArray })) {
         if (onProgress) onProgress(100, 100);
         await navigator.share({
@@ -67,38 +141,19 @@ export async function downloadMultipleCanvasImages(canvasDataArray, onProgress) 
           title: "Tải ảnh về máy",
         });
         shareSuccess = true;
-        return; // Success!
+        return; 
       } else {
         console.warn("navigator.canShare returned false for multiple files.");
       }
     } catch (err) {
-      console.warn("Web share failed for multiple files, falling back to ZIP.", err);
+      console.warn("Web share failed for multiple files, falling back to manual modal.", err);
     }
 
     if (!shareSuccess) {
-      // Fallback to JSZip for iOS because sequential `a.click()` triggers Safari's download interrupt popup
-      try {
-        const zip = new JSZip();
-        for (let i = 0; i < canvasDataArray.length; i++) {
-          const { canvas, filename } = canvasDataArray[i];
-          const jpgFilename = filename.replace(/\.[^/.]+$/, ".jpg");
-          const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
-          zip.file(jpgFilename, blob);
-          if (onProgress) onProgress(Math.floor(((i + 1) / canvasDataArray.length) * 50), 100);
-        }
-        
-        const zipBlob = await zip.generateAsync({ type: "blob", compression: "STORE" }, (meta) => {
-          if (onProgress) onProgress(50 + Math.floor(meta.percent / 2), 100);
-        });
-        
-        const zipUrl = URL.createObjectURL(zipBlob);
-        // Using assign on top location works reliably for Blob URLs on Safari without popup blocks
-        window.location.assign(zipUrl);
-        setTimeout(() => URL.revokeObjectURL(zipUrl), 5000);
-        return;
-      } catch (err) {
-        console.error("ZIP fallback failed", err);
-      }
+      // Ultimate foolproof fallback for iOS: Manual Save Modal
+      if (onProgress) onProgress(100, 100);
+      showLongPressModal(canvasDataArray);
+      return;
     }
   }
 
@@ -107,7 +162,6 @@ export async function downloadMultipleCanvasImages(canvasDataArray, onProgress) 
     const { canvas, filename } = canvasDataArray[i];
     const jpgFilename = filename.replace(/\.[^/.]+$/, ".jpg");
     
-    // Use toBlob instead of toDataURL to prevent blocking main thread
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
     const url = URL.createObjectURL(blob);
     
@@ -116,12 +170,8 @@ export async function downloadMultipleCanvasImages(canvasDataArray, onProgress) 
     link.href = url;
     link.click();
     
-    // Clean up
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    
     if (onProgress) onProgress(i + 1, canvasDataArray.length);
-    
-    // Slight delay to allow browser to process the download
     await new Promise(resolve => setTimeout(resolve, 300));
   }
 }
