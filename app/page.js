@@ -13,10 +13,10 @@ export default function Home() {
   const [bulkPrices, setBulkPrices] = useState("");
   const [columns, setColumns] = useState(5);
   const [horizontalPosition, setHorizontalPosition] = useState(50);
-  const [verticalPosition, setVerticalPosition] = useState(70);
+  const [verticalPosition, setVerticalPosition] = useState(50);
   const [labelColor, setLabelColor] = useState("#2563eb");
   const [textColor, setTextColor] = useState("#ffffff");
-  const [fontSize, setFontSize] = useState(28);
+  const [fontSize, setFontSize] = useState(20);
   const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -338,7 +338,7 @@ export default function Home() {
                     };
                   }));
                 }}
-                placeholder="2m6 - 2m4 - 4m&#10;4m4 - 3m1 - 2m4&#10;..."
+                placeholder=""
                 className="w-full h-24 md:h-32 bg-background border border-border rounded-lg px-3 py-2.5 text-sm font-mono text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent resize-none"
               />
               

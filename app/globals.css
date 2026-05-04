@@ -34,10 +34,11 @@
   scrollbar-color: #1e293b #0b0f1a;
 }
 
-body {
+html, body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, sans-serif;
+  overscroll-behavior-y: none;
 }
 
 /* Custom scrollbar for webkit */
