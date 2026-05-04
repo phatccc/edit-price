@@ -11,7 +11,6 @@ import ItemCard from "../components/ItemCard";
 export default function Home() {
   const [items, setItems] = useState([]);
   const [bulkPrices, setBulkPrices] = useState("");
-  const [markupAmount, setMarkupAmount] = useState(0);
   const [columns, setColumns] = useState(5);
   const [horizontalPosition, setHorizontalPosition] = useState(50);
   const [verticalPosition, setVerticalPosition] = useState(70);
@@ -29,7 +28,7 @@ export default function Home() {
 
   function syncToBulkPrices(nextItems) {
     setBulkPrices(currentBulk => {
-      const currentAllPrices = currentBulk.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+      const currentAllPrices = currentBulk.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p);
       const newAllPrices = nextItems.map(it => {
         const pt = it.priceText ? it.priceText.trim() : "";
         return pt ? pt : "_";
@@ -79,7 +78,7 @@ export default function Home() {
       results.sort((a, b) => a.index - b.index);
       
       setItems((prev) => {
-        const currentAllPrices = bulkPricesRef.current.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+        const currentAllPrices = bulkPricesRef.current.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p);
         const nextItems = [...prev];
         
         results.forEach((r) => {
@@ -180,8 +179,7 @@ export default function Home() {
 
   const applyFormatAndMarkup = (isAuto = false) => {
     if (!bulkPrices.trim()) return;
-    const manualMarkup = parseFloat(markupAmount) || 0;
-    const allPrices = bulkPrices.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+    const allPrices = bulkPrices.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p);
     
     const formattedPrices = allPrices.map(p => {
       if (p === "_") return "_";
@@ -199,8 +197,6 @@ export default function Home() {
         else if (priceInMillion < 70) finalMarkup = 3000;
         else if (priceInMillion < 100) finalMarkup = 4000;
         else finalMarkup = 5000;
-      } else {
-        finalMarkup = manualMarkup;
       }
 
       return formatPriceFromNumber(num + finalMarkup);
@@ -215,7 +211,7 @@ export default function Home() {
     setBulkPrices(newText);
     
     // Sync to items
-    const parsedNewPrices = newText.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+    const parsedNewPrices = newText.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p);
     setItems(prev => prev.map((it, i) => {
       const assignedPrice = parsedNewPrices[i];
       return {
@@ -333,7 +329,7 @@ export default function Home() {
                 onChange={(e) => {
                   const text = e.target.value;
                   setBulkPrices(text);
-                  const allPrices = text.split(/[\r\n-]/).map(p => p.trim()).filter(p => p);
+                  const allPrices = text.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p);
                   setItems(prev => prev.map((it, i) => {
                     const assignedPrice = allPrices[i];
                     return {
@@ -347,37 +343,25 @@ export default function Home() {
               />
               
               {/* Markup and Format Tools */}
-              <div className="flex flex-col gap-2 mt-2 bg-background/50 p-2.5 rounded-lg border border-border/50">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted text-xs font-medium whitespace-nowrap">Đôn giá (k):</span>
-                  <input
-                    type="number"
-                    value={markupAmount}
-                    onChange={(e) => setMarkupAmount(e.target.value)}
-                    className="w-full h-8 bg-background border border-border rounded-md px-3 font-mono text-sm text-foreground focus:border-accent focus:ring-1 focus:ring-accent/40 outline-none"
-                    placeholder="200"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => applyFormatAndMarkup(false)}
-                    className="h-8 rounded-md bg-accent/10 hover:bg-accent/20 text-accent font-semibold transition-colors text-xs flex items-center justify-center gap-1.5 touch-manipulation"
-                    title="Đôn theo số tiền nhập bên trái"
-                  >
-                    Format & Đôn
-                  </button>
-                  <button
-                    onClick={() => applyFormatAndMarkup(true)}
-                    className="h-8 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 font-semibold transition-colors text-xs flex items-center justify-center gap-1.5 touch-manipulation"
-                    title="Đôn tự động theo Rule bậc thang"
-                  >
-                    Đôn Auto
-                  </button>
-                </div>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  onClick={() => applyFormatAndMarkup(false)}
+                  className="h-9 rounded-md bg-accent/10 hover:bg-accent/20 text-accent font-semibold transition-colors text-sm flex items-center justify-center gap-1.5 touch-manipulation"
+                  title="Chỉ chuẩn hóa lại định dạng giá, không đôn"
+                >
+                  Chỉ Format
+                </button>
+                <button
+                  onClick={() => applyFormatAndMarkup(true)}
+                  className="h-9 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 font-semibold transition-colors text-sm flex items-center justify-center gap-1.5 touch-manipulation"
+                  title="Đôn tự động theo Rule bậc thang"
+                >
+                  Đôn Auto
+                </button>
               </div>
 
               <div className="flex justify-between items-center text-xs text-muted px-1 mt-1">
-                <span>{bulkPrices.split(/[\r\n-]/).map(p => p.trim()).filter(p => p).length} prices detected</span>
+                <span>{bulkPrices.split(/[\r\n\-–—]/).map(p => p.trim()).filter(p => p).length} prices detected</span>
               </div>
             </div>
           </section>
