@@ -223,12 +223,13 @@ export default function Home() {
       if (isAuto) {
         const priceInMillion = num / 1000;
         if (priceInMillion < 3) finalMarkup = 300;
-        else if (priceInMillion < 7) finalMarkup = 500;
-        else if (priceInMillion < 10) finalMarkup = 600;
-        else if (priceInMillion < 20) finalMarkup = 1000;
-        else if (priceInMillion < 30) finalMarkup = 1500;
-        else if (priceInMillion < 50) finalMarkup = 2000;
-        else if (priceInMillion < 70) finalMarkup = 3000;
+        else if (priceInMillion < 7) finalMarkup = 400;
+        else if (priceInMillion < 10) finalMarkup = 500;
+        else if (priceInMillion < 20) finalMarkup = 700;
+        else if (priceInMillion < 30) finalMarkup = 1000;
+        else if (priceInMillion < 40) finalMarkup = 1500;
+        else if (priceInMillion < 56) finalMarkup = 2000;
+        else if (priceInMillion < 71) finalMarkup = 3000;
         else if (priceInMillion < 100) finalMarkup = 4000;
         else finalMarkup = 5000;
       }

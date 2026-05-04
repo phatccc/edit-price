@@ -1,3 +1,5 @@
+import JSZip from "jszip";
+
 export async function downloadCanvasImage(canvas, filename) {
   if (!canvas) return;
 
@@ -33,26 +35,51 @@ export async function downloadMultipleCanvasImages(canvasDataArray, onProgress) 
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-  if (isIOS && navigator.canShare) {
+  if (isIOS) {
     try {
-      // Process sequentially to avoid memory spikes on iOS
-      const files = [];
+      const zip = new JSZip();
+      
+      // Add all images to the zip
       for (let i = 0; i < canvasDataArray.length; i++) {
         const { canvas, filename } = canvasDataArray[i];
         const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png", 1.0));
-        files.push(new File([blob], filename, { type: "image/png" }));
-        if (onProgress) onProgress(i + 1, canvasDataArray.length);
+        zip.file(filename, blob);
+        
+        // Progress for creating blobs: 0-50%
+        if (onProgress) onProgress(Math.floor(((i + 1) / canvasDataArray.length) * 50), 100);
       }
       
-      if (navigator.canShare({ files })) {
+      // Generate zip
+      const zipBlob = await zip.generateAsync({ 
+        type: "blob",
+        compression: "STORE" // Faster generation
+      }, (meta) => {
+        // Progress for zipping: 50-100%
+        if (onProgress) onProgress(50 + Math.floor(meta.percent / 2), 100);
+      });
+      
+      const zipFilename = "prices_labeled.zip";
+      const zipFile = new File([zipBlob], zipFilename, { type: "application/zip" });
+      
+      // Try Web Share API first
+      if (navigator.canShare && navigator.canShare({ files: [zipFile] })) {
         await navigator.share({
-          files,
-          title: "Downloaded Images",
+          files: [zipFile],
+          title: "Downloaded Images Zip",
         });
+        return;
+      } else {
+        // Fallback to normal download for zip
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        link.download = zipFilename;
+        link.href = url;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         return;
       }
     } catch (err) {
-      console.warn("Web Share API failed, falling back to standard download.", err);
+      console.warn("ZIP generation failed, falling back to sequential download.", err);
     }
   }
 
